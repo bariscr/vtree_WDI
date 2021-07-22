@@ -1,0 +1,198 @@
+---
+title: "report"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+```
+
+```{r library}
+library(tidyverse)
+library(WDI)
+library(vtree)
+library(ggrepel)
+```
+
+```{r load_data}
+# new_cache <- WDIcache()
+# WDIsearch(string = "Access to electricity", field = "name", short = TRUE, cache = new_cache)
+wb_data <- WDI(
+  country = "all",
+  indicator = c("electricity_access" = "EG.ELC.ACCS.ZS", 
+                "national_pov" = "SI.POV.NAHC"), 
+  start = 1960,
+  end = 2020,
+  extra = TRUE,
+#  cache = new_cache,
+  latest = 100, # Integer indicating the number of most recent non-NA values to get.
+  language = "en"
+)
+```
+
+
+# Access to electricity
+```{r}
+# vtree ----
+wb_data %>% 
+  filter(year == 2019) %>% 
+  mutate(less_than = ifelse(electricity_access < 20, country, "More than or equal to")) %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% 
+  vtree("region less_than", 
+        showpct = FALSE,
+        showcount = FALSE,
+        summary="electricity_access \nAccess to electricity\n%mean% (%)",
+        prune=list(less_than=c("More than or equal to")),
+        labelvar=c(region = "Region"),
+        showvarnames = FALSE,
+        horiz = FALSE,
+        title="**Access to electricity (% of population)** \n\n**World** \nNumber of countries"
+  )
+```
+
+# Poverty vs access to electricity
+
+There is negative relationship between access to electricity and poverty. For certain years South Africa and Ukraine stand out with high levels in both indicators.
+
+```{r}
+ggplot(data = wb_data, aes(x = electricity_access, y = national_pov)) +
+  geom_point(aes(color = electricity_access > 75 & national_pov > 60)) +
+  geom_label(aes(label = ifelse(electricity_access > 75 & national_pov > 60, 
+                               paste0(country, "-", year), NA)),
+            size = 2) +
+  theme(legend.position = "none")
+```
+
+Have a look at recent years only.
+```{r}
+wb_data %>% 
+  filter(year >= 2015) %>% 
+ggplot(aes(x = electricity_access, y = national_pov)) +
+  geom_point(aes(color = between(electricity_access, 75, 100) & between(national_pov, 40, 60))) +
+  geom_label_repel(aes(label = ifelse(between(electricity_access, 75, 100) & between(national_pov, 40, 60), 
+                               paste0(country, "-", year), NA)),
+            size = 2) +
+  theme(legend.position = "none")
+```
+
+Analyze Afghanistan, Honduras and Mexico. The increase in access to electricity in Afghanistan is very interesting. Honduras on the other hand sometimes experience decreases in access to electricity.
+
+```{r}
+wb_data %>% 
+  filter(country %in% c("Afghanistan", "Honduras", "Mexico")) %>% 
+ggplot(aes(x = electricity_access, y = national_pov)) +
+  geom_point() +
+  geom_label_repel(aes(label = paste0(country, "-", year)), 
+                   size = 2) +
+  theme(legend.position = "none")
+```
+
+Countries having electricity access less than 50 percent in any year
+```{r}
+elec_less_than_50 <- 
+  wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% # filter out aggregates
+  filter(electricity_access < 50) %>% 
+  select(country) %>%
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+
+In the data, there are a total of `r length(elec_less_than_50)` countries that had less than 50 percent electricity access.
+
+Early improvers. Increase to over 80 percent before 2010.
+```{r}
+wb_data %>% 
+  filter(country %in% elec_less_than_50) %>% 
+ggplot(aes(x = year, y = electricity_access)) +
+  geom_point() +
+  geom_label_repel(aes(label = ifelse(electricity_access > 80 & year < 2010, 
+                                      paste0(country, "-", year), NA)))
+```
+
+These countries are Indonesia and Morocco. Let's see how they evolved.
+
+```{r}
+wb_data %>% 
+  filter(country %in% c("Indonesia", "Morocco")) %>% 
+ggplot(aes(x = year, y = electricity_access)) +
+  geom_point() +
+  geom_label_repel(aes(label = paste0(country, "-", round(electricity_access, 1))))
+```
+
+This is not a good way to visualize. Let's use geom_line. Sudden increase and decreases could be related to data quality issues.
+
+```{r}
+wb_data %>% 
+  filter(country %in% c("Indonesia", "Morocco")) %>% 
+ggplot(aes(x = year, y = electricity_access, color = country)) +
+  geom_line() 
+```
+
+All countries with values below 50 percent.
+```{r}
+wb_data %>% 
+  filter(country %in% elec_less_than_50) %>% 
+ggplot(aes(x = year, y = electricity_access, color = country)) +
+  geom_line() +
+  theme(legend.position = "none")
+```
+
+Sub-Saharan Africa
+All countries with values below 50 percent.
+```{r}
+wb_data %>% 
+  filter(country %in% elec_less_than_50) %>% 
+  filter(region == "Sub-Saharan Africa") %>% 
+ggplot(aes(x = year, y = electricity_access, color = country)) +
+  geom_line() +
+  scale_x_continuous(limits = c(1990, 2020)) +
+  theme(legend.position = "none")
+```
+
+Which increased over 60 percent.
+
+```{r}
+improved_sub_sahara_c <- 
+wb_data %>% 
+  filter(country %in% elec_less_than_50) %>% 
+  filter(region == "Sub-Saharan Africa") %>% 
+  filter(electricity_access >= 60) %>% 
+  select(country) %>% 
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+
+```{r}
+wb_data %>% 
+  filter(country %in% improved_sub_sahara_c) %>% 
+  mutate(label = if_else(year == max(year), as.character(country), NA_character_)) %>% 
+ggplot(aes(x = year, y = electricity_access, color = country)) +
+  geom_line() +
+  geom_label_repel(aes(label = label)) +
+  scale_x_continuous(limits = c(1990, 2020)) +
+  theme(legend.position = "bottom")
+```
+
+Compare minimum and maximums.
+
+```{r}
+most_improve_5_c <- 
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates" & !is.na(electricity_access)) %>%
+  group_by(country) %>% 
+  summarise(min_elec = min(electricity_access), max_elec = max(electricity_access)) %>% 
+  mutate(range_elec = round(max_elec - min_elec, 1)) %>% 
+  arrange(desc(range_elec)) %>% 
+  head(5) %>% 
+  select(country) %>% 
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+```{r}
+wb_data %>% 
+  filter(country %in% most_improve_5_c) %>% 
+ggplot(aes(x = year, y = electricity_access, color = country)) +
+  geom_line()
+```
+
