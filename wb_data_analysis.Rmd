@@ -20,7 +20,8 @@ library(ggrepel)
 wb_data <- WDI(
   country = "all",
   indicator = c("electricity_access" = "EG.ELC.ACCS.ZS", 
-                "national_pov" = "SI.POV.NAHC"), 
+                "national_pov" = "SI.POV.NAHC",
+                "mort_att_water" = "SH.STA.WASH.P5"), 
   start = 1960,
   end = 2020,
   extra = TRUE,
@@ -194,5 +195,31 @@ wb_data %>%
   filter(country %in% most_improve_5_c) %>% 
 ggplot(aes(x = year, y = electricity_access, color = country)) +
   geom_line()
+```
+
+# Mortality rate attributed to unsafe water
+
+```{r}
+wb_data %>% 
+  ggplot(aes(x = year, y = mort_att_water)) +
+  geom_point()
+```
+
+```{r}
+wb_data %>% 
+  filter(!is.na(mort_att_water)) %>% 
+  ggplot(aes(x = country, y = mort_att_water)) +
+  geom_col()
+```
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% 
+  filter(!is.na(mort_att_water) & mort_att_water >= 25) %>% 
+  ggplot(aes(x = country, y = mort_att_water, fill = region)) +
+  geom_col() +
+  geom_label_repel(aes(label = ifelse(region == "Middle East & North Africa" | mort_att_water >= 50, 
+                                      country, NA))) +
+  theme(legend.position = "bottom")
 ```
 
