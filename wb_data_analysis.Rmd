@@ -21,7 +21,9 @@ wb_data <- WDI(
   country = "all",
   indicator = c("electricity_access" = "EG.ELC.ACCS.ZS", 
                 "national_pov" = "SI.POV.NAHC",
-                "mort_att_water" = "SH.STA.WASH.P5"), 
+                "mort_att_water" = "SH.STA.WASH.P5",
+                "tfr" = "SP.DYN.TFRT.IN",
+                "child_perc" = "SP.POP.0014.TO.ZS"), 
   start = 1960,
   end = 2020,
   extra = TRUE,
@@ -223,3 +225,192 @@ wb_data %>%
   theme(legend.position = "bottom")
 ```
 
+Infant mortality
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% 
+  ggplot(aes(x = year, y = tfr)) +
+  geom_point()
+```
+
+Countries with fertility over 7.5 at any stage in the data.
+
+```{r}
+high_fert_c <- 
+wb_data %>% 
+  filter(tfr >= 7.5) %>% 
+  select(country) %>% 
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+
+Look at min, max and the difference between for these countries.
+
+```{r}
+max_diff_c <- 
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% 
+  filter(country %in% high_fert_c & !is.na(tfr)) %>% 
+  group_by(country) %>% 
+  summarise(max_fert = max(tfr),
+            min_fert = min(tfr)) %>% 
+  mutate(diff_max_min = max_fert - min_fert) %>% 
+  arrange(desc(diff_max_min)) %>% 
+  head() %>% 
+  select(country) %>% 
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  filter(country %in% max_diff_c) %>% 
+ggplot(aes(x = year, y = tfr, color = country)) +
+  geom_line()
+```
+
+```{r}
+min_diff_c <- 
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% 
+  filter(country %in% high_fert_c & !is.na(tfr)) %>% 
+  group_by(country) %>% 
+  summarise(max_fert = max(tfr),
+            min_fert = min(tfr)) %>% 
+  mutate(diff_max_min = max_fert - min_fert) %>% 
+  arrange(desc(diff_max_min)) %>% 
+  tail(3) %>% 
+  select(country) %>% 
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  filter(country %in% min_diff_c) %>% 
+ggplot(aes(x = year, y = tfr, color = country)) +
+  geom_line()
+```
+
+Max min difference for all countries
+
+```{r}
+max_diff_c_all <- 
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% 
+  filter(!is.na(tfr)) %>% 
+  group_by(country) %>% 
+  summarise(max_fert = max(tfr),
+            min_fert = min(tfr)) %>% 
+  mutate(diff_max_min = max_fert - min_fert,
+         perc_diff_max_min = (max_fert - min_fert) / max_fert * 100) %>% 
+  arrange(desc(perc_diff_max_min)) %>% 
+  head() %>% 
+  select(country) %>% 
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  filter(country %in% max_diff_c_all) %>% 
+ggplot(aes(x = year, y = tfr, color = country)) +
+  geom_line()
+```
+
+
+
+```{r}
+min_diff_c_all <- 
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>% 
+  filter(!is.na(tfr)) %>% 
+  group_by(country) %>% 
+  summarise(max_fert = max(tfr),
+            min_fert = min(tfr)) %>% 
+  mutate(diff_max_min = max_fert - min_fert,
+         perc_diff_max_min = (max_fert - min_fert) / max_fert * 100) %>% 
+  arrange(desc(perc_diff_max_min)) %>% 
+  tail() %>% 
+  select(country) %>% 
+  unique() %>% 
+  unlist(use.names = FALSE)
+```
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  filter(country %in% c(min_diff_c_all, max_diff_c_all)) %>% 
+ggplot(aes(x = year, y = tfr, color = country)) +
+  geom_line()
+```
+
+Can regions be visualised?
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  ggplot(aes(x = year, y = tfr, color = region)) + 
+  geom_point()
+```
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  ggplot(aes(x = year, y = tfr, color = income)) + 
+  geom_point()
+```
+
+Lower middle income c's. Two countries with low levels.
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  filter(income == "Lower middle income") %>% 
+  ggplot(aes(x = year, y = tfr, color = country)) + 
+  geom_point() +
+  geom_label_repel(aes(label = ifelse(year == 1960 & tfr < 4, paste0(country), NA)))
+```
+
+High middle income c's. Two countries with low levels.
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  filter(income == "High income") %>% 
+  ggplot(aes(x = year, y = tfr, color = country)) + 
+  geom_point() +
+  geom_label_repel(aes(label = ifelse((year == 2019 & tfr > 2.5) | (year == 1960 & tfr > 7), paste0(country, "-", round(tfr, 1)), NA))) +
+  theme(legend.position =  "none")
+```
+
+# Children percentage
+
+```{r}
+wb_data %>% 
+  filter(!is.na(region) & region != "Aggregates") %>%
+  ggplot(aes(x = year, y = child_perc, color = region)) + 
+  geom_point()
+```
+
+Europe and Central Asia
+
+```{r}
+wb_data %>% 
+  filter(region == "Europe & Central Asia") %>%
+  ggplot(aes(x = year, y = child_perc, color = country)) + 
+  geom_point() +
+  geom_label_repel(aes(label = ifelse(year == 2020 & child_perc > 25, country, NA))) +
+  theme(legend.position =  "none")
+```
+
+```{r}
+wb_data %>% 
+  filter(region == "Sub-Saharan Africa") %>%
+  ggplot(aes(x = year, y = child_perc, color = country)) + 
+  geom_point() +
+  geom_label_repel(aes(label = ifelse(year == 2020 & (child_perc < 35 | child_perc > 47), country, NA))) +
+  theme(legend.position =  "none")
+```
